@@ -1,4 +1,4 @@
-module github.com/Osmose-Club-Hotels/vaultwarden-k8s-sync
+module github.com/pagbrl/vaultwarden-k8s-sync
 
 go 1.23
 
