@@ -1,0 +1,77 @@
+# Least-privilege RBAC.
+#
+# The syncer only needs to manage Secrets, and only in the namespaces it writes
+# into. We therefore use a namespaced Role (NOT a ClusterRole) per target
+# namespace, each bound to the single ServiceAccount that lives in the
+# vaultwarden-sync namespace.
+#
+# Add one Role + RoleBinding pair per target namespace referenced by your
+# SYNC_MAPPINGS. The examples below cover two target namespaces: "app-prod" and
+# "app-staging". Duplicate the pattern for more.
+#
+# Verbs are the minimum needed to upsert idempotently:
+#   get    - read the existing secret to diff
+#   create - first-time creation
+#   update - replace data on change
+#   patch  - label reconciliation / server-side updates
+# No list/watch/delete is granted.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vaultwarden-k8s-sync-secrets
+  namespace: app-prod
+  labels:
+    app.kubernetes.io/name: vaultwarden-k8s-sync
+    app.kubernetes.io/managed-by: vaultwarden-k8s-sync
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vaultwarden-k8s-sync-secrets
+  namespace: app-prod
+  labels:
+    app.kubernetes.io/name: vaultwarden-k8s-sync
+    app.kubernetes.io/managed-by: vaultwarden-k8s-sync
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vaultwarden-k8s-sync-secrets
+subjects:
+  - kind: ServiceAccount
+    name: vaultwarden-k8s-sync
+    namespace: vaultwarden-sync
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vaultwarden-k8s-sync-secrets
+  namespace: app-staging
+  labels:
+    app.kubernetes.io/name: vaultwarden-k8s-sync
+    app.kubernetes.io/managed-by: vaultwarden-k8s-sync
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vaultwarden-k8s-sync-secrets
+  namespace: app-staging
+  labels:
+    app.kubernetes.io/name: vaultwarden-k8s-sync
+    app.kubernetes.io/managed-by: vaultwarden-k8s-sync
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vaultwarden-k8s-sync-secrets
+subjects:
+  - kind: ServiceAccount
+    name: vaultwarden-k8s-sync
+    namespace: vaultwarden-sync

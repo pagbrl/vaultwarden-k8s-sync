@@ -1,0 +1,90 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vaultwarden-k8s-sync
+  namespace: vaultwarden-sync
+  labels:
+    app.kubernetes.io/name: vaultwarden-k8s-sync
+    app.kubernetes.io/managed-by: vaultwarden-k8s-sync
+spec:
+  # Every 15 minutes. This schedule is the authoritative sync interval.
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: vaultwarden-k8s-sync
+        spec:
+          serviceAccountName: vaultwarden-k8s-sync
+          restartPolicy: OnFailure
+          automountServiceAccountToken: true
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: sync
+              image: ghcr.io/osmose-club-hotels/vaultwarden-k8s-sync:latest
+              imagePullPolicy: IfNotPresent
+              args: []
+              env:
+                - name: VAULTWARDEN_SERVER
+                  value: "https://vaultwarden.services.osmose.co"
+                # Mapping of collectionID -> (namespace, secretName).
+                # JSON array; one entry per Secret to reconcile.
+                - name: SYNC_MAPPINGS
+                  value: |
+                    [
+                      {"collectionId":"REPLACE-WITH-PROD-COLLECTION-ID","namespace":"app-prod","secretName":"app-secrets"},
+                      {"collectionId":"REPLACE-WITH-STAGING-COLLECTION-ID","namespace":"app-staging","secretName":"app-secrets"}
+                    ]
+                # Bootstrap credentials come from the out-of-band Secret.
+                - name: BW_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: vaultwarden-bootstrap
+                      key: BW_PASSWORD
+                - name: BW_CLIENTID
+                  valueFrom:
+                    secretKeyRef:
+                      name: vaultwarden-bootstrap
+                      key: BW_CLIENTID
+                - name: BW_CLIENTSECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: vaultwarden-bootstrap
+                      key: BW_CLIENTSECRET
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                # bw needs a writable HOME for its config/session state, and
+                # the root FS is read-only.
+                - name: bw-home
+                  mountPath: /home/app
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: bw-home
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
