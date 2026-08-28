@@ -31,26 +31,30 @@ func ParseNotes(body string) map[string]string {
 		// Normalise CRLF: bufio.Scanner strips '\n' but leaves a trailing '\r'.
 		line = strings.TrimSuffix(line, "\r")
 
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+		// Detect blank/comment lines on a trimmed COPY, so we never mutate the
+		// whitespace of the value itself (secrets are transported verbatim — a
+		// trailing space in the note must survive to the k8s Secret).
+		if t := strings.TrimSpace(line); t == "" || strings.HasPrefix(t, "#") {
 			continue
 		}
 
-		// Strip an optional leading "export " (only when it's a real prefix).
-		trimmed = strings.TrimPrefix(trimmed, "export ")
+		// Trim leading indentation + an optional "export " from the FRONT only.
+		head := strings.TrimLeft(line, " \t")
+		head = strings.TrimPrefix(head, "export ")
+		head = strings.TrimLeft(head, " \t")
 
-		eq := strings.IndexByte(trimmed, '=')
+		eq := strings.IndexByte(head, '=')
 		if eq < 0 {
 			continue
 		}
 
-		key := strings.TrimSpace(trimmed[:eq])
+		key := strings.TrimSpace(head[:eq])
 		if key == "" {
 			continue
 		}
-		value := trimmed[eq+1:]
-
-		out[key] = value
+		// Everything after the first '=' is the value, verbatim (trailing and
+		// internal whitespace preserved).
+		out[key] = head[eq+1:]
 	}
 
 	return out
