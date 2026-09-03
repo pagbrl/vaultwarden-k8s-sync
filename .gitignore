@@ -1,0 +1,32 @@
+# Binaries
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+vaultwarden-k8s-sync
+
+# Test binary / coverage
+*.test
+*.out
+coverage.*
+
+# Go workspace
+go.work
+go.work.sum
+
+# Vendored deps (not used)
+/vendor/
+
+# Local env / secrets — never commit
+.env
+*.env.local
+*.local.yaml
+bootstrap-secret.yaml
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
