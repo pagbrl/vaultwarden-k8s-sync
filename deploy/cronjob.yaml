@@ -34,7 +34,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: sync
-              image: ghcr.io/osmose-club-hotels/vaultwarden-k8s-sync:latest
+              image: ghcr.io/osmose-club-hotels/vaultwarden-k8s-sync:0.2.0
               imagePullPolicy: IfNotPresent
               args: []
               env:
@@ -42,11 +42,17 @@ spec:
                   value: "https://vaultwarden.services.osmose.co"
                 # Mapping of collectionID -> (namespace, secretName).
                 # JSON array; one entry per Secret to reconcile.
+                # perItem: each secure-note item in the collection becomes its own
+                # Secret named after the item (e.g. Tech/ansible-staging item
+                # "backend-env" -> Secret app-staging/backend-env, consumed by the
+                # backend Deployment's envFrom secretRef: backend-env).
+                # NOTE per-env: this staging collection id is hardcoded because only
+                # the staging cluster reconciles this repo today; make per-env when a
+                # prod cluster is added.
                 - name: SYNC_MAPPINGS
                   value: |
                     [
-                      {"collectionId":"REPLACE-WITH-PROD-COLLECTION-ID","namespace":"app-prod","secretName":"app-secrets"},
-                      {"collectionId":"REPLACE-WITH-STAGING-COLLECTION-ID","namespace":"app-staging","secretName":"app-secrets"}
+                      {"collectionId":"d277facf-80e4-4f98-b3af-f9c6947310c1","namespace":"app-staging","perItem":true}
                     ]
                 # Bootstrap credentials come from the out-of-band Secret.
                 - name: BW_PASSWORD
