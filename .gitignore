@@ -5,7 +5,10 @@
 *.dll
 *.so
 *.dylib
-vaultwarden-k8s-sync
+# Anchored to the root-built binary only — an unanchored "vaultwarden-k8s-sync"
+# also matched the cmd/vaultwarden-k8s-sync/ SOURCE dir, so main.go was never
+# tracked (the image only built because docker build ignores .gitignore).
+/vaultwarden-k8s-sync
 
 # Test binary / coverage
 *.test

@@ -25,6 +25,14 @@ type Mapping struct {
 	CollectionID string `json:"collectionId"`
 	Namespace    string `json:"namespace"`
 	SecretName   string `json:"secretName"`
+
+	// PerItem, when true, upserts ONE Kubernetes Secret per secure-note item in
+	// the collection — named after the item (sanitised to a DNS-1123 label),
+	// with that item's own KEY=VALUE lines as its data — instead of merging all
+	// items into a single SecretName. In per-item mode SecretName is optional and
+	// used as a name prefix (e.g. prefix "app-" + item "backend-env" =>
+	// "app-backend-env"); empty prefix keeps the item name as-is.
+	PerItem bool `json:"perItem"`
 }
 
 // Config is the fully-resolved runtime configuration.
@@ -131,8 +139,13 @@ func (c *Config) validate() error {
 		return fmt.Errorf("at least one collection->secret mapping is required (SYNC_MAPPINGS or --map)")
 	}
 	for i, m := range c.Mappings {
-		if m.CollectionID == "" || m.Namespace == "" || m.SecretName == "" {
-			return fmt.Errorf("mapping[%d] is incomplete: %+v", i, m)
+		if m.CollectionID == "" || m.Namespace == "" {
+			return fmt.Errorf("mapping[%d] needs collectionId and namespace: %+v", i, m)
+		}
+		// In per-item mode SecretName is an optional prefix; in merge mode it is
+		// the (required) single Secret name.
+		if !m.PerItem && m.SecretName == "" {
+			return fmt.Errorf("mapping[%d] needs secretName (or set perItem:true): %+v", i, m)
 		}
 	}
 	return nil

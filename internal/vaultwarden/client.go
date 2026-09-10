@@ -183,6 +183,35 @@ func (c *Client) SecureNotes(ctx context.Context, collectionID string) ([]string
 	return notes, nil
 }
 
+// SecureNoteItems returns every non-empty secure note (type 2) in the given
+// collection as full items (Name + Notes), for per-item Secret mapping (one
+// Kubernetes Secret per item, named after the item).
+func (c *Client) SecureNoteItems(ctx context.Context, collectionID string) ([]Item, error) {
+	out, err := c.run(ctx, c.sessionEnv(),
+		"list", "items", "--collectionid", collectionID, "--session", c.session)
+	if err != nil {
+		return nil, fmt.Errorf("bw list items (collection %s): %w", collectionID, err)
+	}
+
+	var items []Item
+	if err := json.Unmarshal(out, &items); err != nil {
+		return nil, fmt.Errorf("parsing bw list items output: %w", err)
+	}
+
+	var res []Item
+	for _, it := range items {
+		if it.Type != secureNoteType {
+			continue
+		}
+		if strings.TrimSpace(it.Notes) == "" {
+			c.log.Warn("secure note has empty body", "item", it.Name, "id", it.ID)
+			continue
+		}
+		res = append(res, it)
+	}
+	return res, nil
+}
+
 // Lock locks the vault, discarding the in-memory session. Best-effort.
 func (c *Client) Lock(ctx context.Context) {
 	if c.session == "" {
