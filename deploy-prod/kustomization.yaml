@@ -1,0 +1,45 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# PRODUCTION overlay of the syncer. Same CronJob (ns vaultwarden-sync) as base,
+# but SYNC_MAPPINGS points at the PROD Vaultwarden collection (Tech/ansible-production)
+# and writes Secrets into app-prod. The prod cluster's Argo (envs/prod/vaultwarden-sync.yaml)
+# reconciles this path. Bootstrap creds stay out-of-band (Secret vaultwarden-bootstrap).
+resources:
+  - ../deploy
+
+patches:
+  - target: { kind: CronJob, name: vaultwarden-k8s-sync }
+    patch: |-
+      apiVersion: batch/v1
+      kind: CronJob
+      metadata:
+        name: vaultwarden-k8s-sync
+        namespace: vaultwarden-sync
+      spec:
+        jobTemplate:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: sync
+                    env:
+                      - name: SYNC_MAPPINGS
+                        value: |
+                          [
+                            {"collectionId":"90004f7e-1144-4b99-8bba-f8899b0b1ee1","namespace":"app-prod","perItem":true}
+                          ]
+  # The base grants Secret RBAC in BOTH app-prod and app-staging. On the PROD
+  # cluster the app-staging pair would spawn a stray app-staging namespace — drop it.
+  - target: { kind: Role, name: vaultwarden-k8s-sync-secrets, namespace: app-staging }
+    patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata: { name: vaultwarden-k8s-sync-secrets, namespace: app-staging }
+  - target: { kind: RoleBinding, name: vaultwarden-k8s-sync-secrets, namespace: app-staging }
+    patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata: { name: vaultwarden-k8s-sync-secrets, namespace: app-staging }
