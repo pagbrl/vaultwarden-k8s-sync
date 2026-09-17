@@ -2,8 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 # PRODUCTION overlay of the syncer. Same CronJob (ns vaultwarden-sync) as base,
-# but SYNC_MAPPINGS points at the PROD Vaultwarden collection (Tech/ansible-production)
-# and writes Secrets into app-prod. The prod cluster's Argo (envs/prod/vaultwarden-sync.yaml)
+# but SYNC_MAPPINGS points at the PROD Vaultwarden collection (Tech/kube-production —
+# k8s-only <svc>-env items; the legacy ansible items stay in Tech/ansible-production
+# and are intentionally NOT synced) and writes Secrets into app-prod. The prod
+# cluster's Argo (envs/prod/vaultwarden-sync.yaml)
 # reconciles this path. Bootstrap creds stay out-of-band (Secret vaultwarden-bootstrap).
 resources:
   - ../deploy
@@ -27,7 +29,7 @@ patches:
                       - name: SYNC_MAPPINGS
                         value: |
                           [
-                            {"collectionId":"90004f7e-1144-4b99-8bba-f8899b0b1ee1","namespace":"app-prod","perItem":true}
+                            {"collectionId":"419da11f-2fb5-4a42-a180-05c2790e4363","namespace":"app-prod","perItem":true}
                           ]
   # The base grants Secret RBAC in BOTH app-prod and app-staging. On the PROD
   # cluster the app-staging pair would spawn a stray app-staging namespace — drop it.
