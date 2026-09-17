@@ -43,16 +43,16 @@ spec:
                 # Mapping of collectionID -> (namespace, secretName).
                 # JSON array; one entry per Secret to reconcile.
                 # perItem: each secure-note item in the collection becomes its own
-                # Secret named after the item (e.g. Tech/ansible-staging item
+                # Secret named after the item (e.g. Tech/kube-staging item
                 # "backend-env" -> Secret app-staging/backend-env, consumed by the
                 # backend Deployment's envFrom secretRef: backend-env).
-                # NOTE per-env: this staging collection id is hardcoded because only
-                # the staging cluster reconciles this repo today; make per-env when a
-                # prod cluster is added.
+                # Collection: Tech/kube-staging — holds ONLY the k8s <svc>-env items
+                # (the legacy ansible service items stay in Tech/ansible-staging and
+                # are intentionally NOT synced into the cluster).
                 - name: SYNC_MAPPINGS
                   value: |
                     [
-                      {"collectionId":"d277facf-80e4-4f98-b3af-f9c6947310c1","namespace":"app-staging","perItem":true}
+                      {"collectionId":"ee2fb052-a055-4991-ae47-ae5e85544631","namespace":"app-staging","perItem":true}
                     ]
                 # Bootstrap credentials come from the out-of-band Secret.
                 - name: BW_PASSWORD
