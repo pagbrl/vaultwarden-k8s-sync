@@ -1,0 +1,17 @@
+# Persists the bw CLI state (device identifier + auth) across CronJob runs. With
+# an emptyDir the state was fresh every run, so `bw login --apikey` registered a
+# NEW device each time (every 15 min) and Vaultwarden emailed a "New Device
+# Logged In" notification. With a persistent volume the syncer logs in ONCE;
+# subsequent runs see `bw status` already authenticated and only unlock — no new
+# device, no email.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vaultwarden-k8s-sync-bw-state
+  namespace: vaultwarden-sync
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 64Mi

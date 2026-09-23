@@ -90,7 +90,11 @@ spec:
                 - name: tmp
                   mountPath: /tmp
           volumes:
+            # Persistent so bw's device identifier + auth survive between runs —
+            # otherwise every run is a "new device" and Vaultwarden emails a login
+            # notification (see pvc.yaml).
             - name: bw-home
-              emptyDir: {}
+              persistentVolumeClaim:
+                claimName: vaultwarden-k8s-sync-bw-state
             - name: tmp
               emptyDir: {}
