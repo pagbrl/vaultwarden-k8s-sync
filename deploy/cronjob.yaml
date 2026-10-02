@@ -52,7 +52,8 @@ spec:
                 - name: SYNC_MAPPINGS
                   value: |
                     [
-                      {"collectionId":"ee2fb052-a055-4991-ae47-ae5e85544631","namespace":"app-staging","perItem":true}
+                      {"collectionId":"ee2fb052-a055-4991-ae47-ae5e85544631","namespace":"app-staging","perItem":true},
+                      {"collectionId":"472b660f-2966-46cd-9cfe-2913e4128070","namespace":"app-labs","perItem":true}
                     ]
                 # Bootstrap credentials come from the out-of-band Secret.
                 - name: BW_PASSWORD

@@ -6,8 +6,10 @@
 # vaultwarden-sync namespace.
 #
 # Add one Role + RoleBinding pair per target namespace referenced by your
-# SYNC_MAPPINGS. The examples below cover two target namespaces: "app-prod" and
-# "app-staging". Duplicate the pattern for more.
+# SYNC_MAPPINGS. The pairs below cover "app-prod", "app-staging" and "app-labs"
+# (the vibe-coding sandbox). Duplicate the pattern for more — and do add the
+# pair: a mapping without its Role fails with a Forbidden the syncer reports
+# per item, which is easy to miss in a CronJob log.
 #
 # Verbs are the minimum needed to upsert idempotently:
 #   get    - read the existing secret to diff
@@ -64,6 +66,40 @@ kind: RoleBinding
 metadata:
   name: vaultwarden-k8s-sync-secrets
   namespace: app-staging
+  labels:
+    app.kubernetes.io/name: vaultwarden-k8s-sync
+    app.kubernetes.io/managed-by: vaultwarden-k8s-sync
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vaultwarden-k8s-sync-secrets
+subjects:
+  - kind: ServiceAccount
+    name: vaultwarden-k8s-sync
+    namespace: vaultwarden-sync
+---
+# app-labs — le bac à sable du vibe coding. Sa collection Vaultwarden
+# (Tech/kube-labs) est DISTINCTE de celle de staging, délibérément : mapper
+# Tech/kube-staging ici recopierait backend-env, api-env et les autres secrets
+# des services de staging dans le namespace des vibe-codeurs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vaultwarden-k8s-sync-secrets
+  namespace: app-labs
+  labels:
+    app.kubernetes.io/name: vaultwarden-k8s-sync
+    app.kubernetes.io/managed-by: vaultwarden-k8s-sync
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vaultwarden-k8s-sync-secrets
+  namespace: app-labs
   labels:
     app.kubernetes.io/name: vaultwarden-k8s-sync
     app.kubernetes.io/managed-by: vaultwarden-k8s-sync
