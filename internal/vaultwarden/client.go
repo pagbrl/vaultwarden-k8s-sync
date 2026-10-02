@@ -78,7 +78,16 @@ func (c *Client) Prepare(ctx context.Context) error {
 	return nil
 }
 
+// configureServer points the CLI at our server. `bw config server` is REFUSED
+// once the CLI holds a login ("Logout required before server config update"),
+// and our state directory is persistent across runs — so a run that logs in
+// breaks every later run unless we skip the call when the server already
+// matches. That is how the sync silently died for nine days.
 func (c *Client) configureServer(ctx context.Context) error {
+	if st, err := c.status(ctx); err == nil && sameServer(st.ServerURL, c.Server) {
+		c.log.Info("vaultwarden server already configured", "server", c.Server)
+		return nil
+	}
 	c.log.Info("configuring vaultwarden server", "server", c.Server)
 	_, err := c.run(ctx, nil, "config", "server", c.Server)
 	if err != nil {
@@ -87,16 +96,21 @@ func (c *Client) configureServer(ctx context.Context) error {
 	return nil
 }
 
+// sameServer compares two server URLs ignoring a trailing slash.
+func sameServer(a, b string) bool {
+	return strings.TrimRight(a, "/") == strings.TrimRight(b, "/")
+}
+
 // ensureLoggedIn logs in with API-key credentials if provided and the CLI is
 // not already authenticated. If no API key is provided we assume a prior
 // `bw login` has established an account (unlock will fail loudly otherwise).
 func (c *Client) ensureLoggedIn(ctx context.Context) error {
-	status, err := c.status(ctx)
+	st, err := c.status(ctx)
 	if err != nil {
 		return err
 	}
-	if status != "unauthenticated" {
-		c.log.Info("bw already authenticated", "status", status)
+	if st.Status != "unauthenticated" {
+		c.log.Info("bw already authenticated", "status", st.Status)
 		return nil
 	}
 
@@ -115,19 +129,22 @@ func (c *Client) ensureLoggedIn(ctx context.Context) error {
 	return nil
 }
 
-// status returns the CLI status string: unauthenticated | locked | unlocked.
-func (c *Client) status(ctx context.Context) (string, error) {
+// bwStatus is the part of `bw status` we act on.
+type bwStatus struct {
+	Status    string `json:"status"` // unauthenticated | locked | unlocked
+	ServerURL string `json:"serverUrl"`
+}
+
+func (c *Client) status(ctx context.Context) (bwStatus, error) {
 	out, err := c.run(ctx, nil, "status")
 	if err != nil {
-		return "", fmt.Errorf("bw status: %w", err)
+		return bwStatus{}, fmt.Errorf("bw status: %w", err)
 	}
-	var s struct {
-		Status string `json:"status"`
-	}
+	var s bwStatus
 	if err := json.Unmarshal(out, &s); err != nil {
-		return "", fmt.Errorf("parsing bw status: %w", err)
+		return bwStatus{}, fmt.Errorf("parsing bw status: %w", err)
 	}
-	return s.Status, nil
+	return s, nil
 }
 
 // unlock unlocks the vault and stores the resulting session token.
