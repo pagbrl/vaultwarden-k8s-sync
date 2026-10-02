@@ -32,6 +32,26 @@ spec:
             fsGroup: 10001
             seccompProfile:
               type: RuntimeDefault
+          # TEMPORAIRE — à retirer quand l'image embarquera le correctif de
+          # `configureServer` (elle est encore figée à 0.2.0, construite à la
+          # main, cf. la carte sur l'absence de pipeline d'image).
+          #
+          # `bw config server` est REFUSÉ dès que le CLI détient une session
+          # ("Logout required before server config update"), et /home/app est un
+          # volume persistant : le run qui se connecte casse donc tous les
+          # suivants. C'est ce qui a tué la synchro en silence du 23 septembre au
+          # 2 octobre — 9 jours de secrets périmés, sans aucune alerte.
+          # Repartir d'un état déconnecté coûte une reconnexion par run (~7 s).
+          initContainers:
+            - name: bw-logout
+              image: ghcr.io/osmose-club-hotels/vaultwarden-k8s-sync:0.2.0
+              imagePullPolicy: IfNotPresent
+              command: ["sh", "-c", "bw logout || true"]
+              volumeMounts:
+                - name: bw-home
+                  mountPath: /home/app
+                - name: tmp
+                  mountPath: /tmp
           containers:
             - name: sync
               image: ghcr.io/osmose-club-hotels/vaultwarden-k8s-sync:0.2.0
