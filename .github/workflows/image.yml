@@ -7,10 +7,11 @@ name: image
 # image build never hides a failed test, and a tag never waits on the test matrix
 # of an unrelated branch.
 #
-# Before the first tag, one thing must be done by hand, once: GHCR creates a new
-# package PRIVATE even when the repository is public. Push a tag, then set the
-# package to public in its settings — otherwise consumers get
-# `denied: denied` on pull, which reads like a credentials problem and is not one.
+# Package visibility needs no manual step here: the package is linked to this
+# public repository through the `org.opencontainers.image.source` label that
+# metadata-action sets, and GHCR gave it the repository's visibility — verified
+# with an anonymous pull right after the first tag. If a fork ever gets
+# `denied: denied`, that link is what to check first, not the credentials.
 
 on:
   push:
@@ -46,6 +47,11 @@ jobs:
           # ghcr.io/<owner>/<repo>, never hardcoded: a fork publishes to its own
           # namespace instead of failing on permissions here.
           images: ghcr.io/${{ github.repository }}
+          # `latest=false` is NOT redundant with the single tag pattern below:
+          # metadata-action's default flavor is `latest=auto`, which adds `latest`
+          # on any semver tag. v0.3.0 shipped a `latest` because of it.
+          flavor: |
+            latest=false
           # The exact version and nothing else — no `latest`, no `0.3` that moves
           # with each patch. Consumers pin a version (or a digest) in their GitOps
           # repo, and this component reads every secret of a cluster: a moving tag
