@@ -15,5 +15,5 @@ commonLabels:
   app.kubernetes.io/part-of: vaultwarden-k8s-sync
 
 images:
-  - name: ghcr.io/osmose-club-hotels/vaultwarden-k8s-sync
-    newTag: "0.2.0"
+  - name: ghcr.io/pagbrl/vaultwarden-k8s-sync
+    newTag: "0.3.0"

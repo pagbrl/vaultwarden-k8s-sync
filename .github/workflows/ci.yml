@@ -20,3 +20,26 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
       - run: go test ./...
+
+  # Builds the image without pushing it.
+  #
+  # Two reasons, and the second is the one that pays: without this, a broken
+  # Dockerfile is only discovered when a tag is pushed — at release time, on the
+  # one path where you want no surprises. And because image.yml uses the same
+  # `type=gha` cache in the same repository scope, the layers warmed here are
+  # reused by the tag build, so publishing a release is mostly a push.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          # Same single platform as image.yml — see the comment there.
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

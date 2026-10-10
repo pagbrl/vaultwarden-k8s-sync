@@ -44,7 +44,7 @@ spec:
           # Repartir d'un état déconnecté coûte une reconnexion par run (~7 s).
           initContainers:
             - name: bw-logout
-              image: ghcr.io/osmose-club-hotels/vaultwarden-k8s-sync:0.2.0
+              image: ghcr.io/pagbrl/vaultwarden-k8s-sync:0.3.0
               imagePullPolicy: IfNotPresent
               command: ["sh", "-c", "bw logout || true"]
               volumeMounts:
@@ -54,7 +54,7 @@ spec:
                   mountPath: /tmp
           containers:
             - name: sync
-              image: ghcr.io/osmose-club-hotels/vaultwarden-k8s-sync:0.2.0
+              image: ghcr.io/pagbrl/vaultwarden-k8s-sync:0.3.0
               imagePullPolicy: IfNotPresent
               args: []
               env:
