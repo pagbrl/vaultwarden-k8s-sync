@@ -105,6 +105,31 @@ Parser rules:
 - split on the **first** `=` only (so `=` in the value is fine),
 - key is trimmed; value is taken verbatim (CRLF `\r` removed).
 
+### Secret type: `K8S_SECRET_TYPE`
+
+One key is **reserved**. A note carrying `K8S_SECRET_TYPE` sets the Kubernetes
+Secret's `type` instead of contributing a data entry; it never reaches the
+Secret's data. Without it, Secrets are `Opaque` — unchanged from before.
+
+This exists for `imagePullSecrets`, which **only** accepts a Secret of type
+`kubernetes.io/dockerconfigjson`: kubelet ignores an `Opaque` Secret even when
+it carries a perfectly good `.dockerconfigjson` key. A registry-credential note
+therefore reads:
+
+```sh
+K8S_SECRET_TYPE=kubernetes.io/dockerconfigjson
+.dockerconfigjson={"auths":{"ghcr.io":{"auth":"<base64 of user:token>"}}}
+```
+
+No allow-list of types is enforced here: the API server already validates that
+a typed Secret carries the keys its type requires, and rejects unknown builtin
+types.
+
+> ⚠️ A Secret's `type` is **immutable**. If a Secret already exists with another
+> type, the run fails with the `kubectl delete secret` command that fixes it —
+> this tool has no `delete` verb (see [Security notes](#security-notes)), and a
+> CronJob should not delete a Secret running pods depend on.
+
 ## Configuration
 
 | Env var             | Flag              | Required | Description                                          |
