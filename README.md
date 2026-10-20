@@ -130,6 +130,20 @@ types.
 > this tool has no `delete` verb (see [Security notes](#security-notes)), and a
 > CronJob should not delete a Secret running pods depend on.
 
+### Multi-line values: `<key>.b64`
+
+The note is parsed line by line, so a value that spans several lines — an SSH
+private key, a PEM certificate — cannot be written into it as is. Encode it
+(`base64 -w0 < id_ed25519`) and suffix the key with `.b64`: the Secret gets the
+key **without** the suffix, and the decoded value.
+
+```sh
+sshPrivateKey.b64=LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K…
+```
+
+A value that is not valid base64 fails that item, naming the key; nothing is
+written for it.
+
 ## Configuration
 
 | Env var             | Flag              | Required | Description                                          |

@@ -85,3 +85,47 @@ func TestUpsertSecretRefusesTypeChange(t *testing.T) {
 		t.Fatal("expected an error when the existing Secret has another type")
 	}
 }
+
+// A note is read line by line, so a multi-line value — an SSH private key, a
+// PEM certificate — cannot be written into it as is. It travels base64-encoded
+// under `<key>.b64` and lands decoded under `<key>`.
+func TestUpsertSecretDecodesB64Keys(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	c := NewWithClientset(cs, discard())
+
+	const pem = "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----\n"
+
+	if _, err := c.UpsertSecret(context.Background(), "argocd", "git-creds", map[string]string{
+		"sshPrivateKey.b64": "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KQUFBQQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K",
+		"url":               "git@github.com:org/repo.git",
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	got, _ := cs.CoreV1().Secrets("argocd").Get(context.Background(), "git-creds", metav1.GetOptions{})
+	if got.StringData["sshPrivateKey"] != pem {
+		t.Errorf("sshPrivateKey = %q, want the decoded PEM", got.StringData["sshPrivateKey"])
+	}
+	if _, ok := got.StringData["sshPrivateKey.b64"]; ok {
+		t.Errorf("the encoded key leaked into the secret data")
+	}
+	if got.StringData["url"] != "git@github.com:org/repo.git" {
+		t.Errorf("ordinary key not transported verbatim")
+	}
+
+}
+
+// Invalid base64 must fail the item, not write a garbage key.
+func TestUpsertSecretRejectsInvalidB64(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	c := NewWithClientset(cs, discard())
+
+	if _, err := c.UpsertSecret(context.Background(), "argocd", "git-creds", map[string]string{
+		"sshPrivateKey.b64": "not base64 !",
+	}); err == nil {
+		t.Fatal("upsert accepted an invalid base64 value")
+	}
+	if _, err := cs.CoreV1().Secrets("argocd").Get(context.Background(), "git-creds", metav1.GetOptions{}); err == nil {
+		t.Error("a secret was written despite the invalid value")
+	}
+}

@@ -3,6 +3,7 @@ package k8s
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -42,6 +43,12 @@ const (
 	// unknown builtin type. Duplicating that list would only make this tool
 	// lag behind Kubernetes.
 	TypeKey = "K8S_SECRET_TYPE"
+
+	// B64Suffix marks a value carried base64-encoded: `<key>.b64=<base64>` in
+	// the note lands as `<key>` in the Secret, decoded. A note is parsed line
+	// by line, so this is the only way a multi-line value — an SSH private
+	// key, a PEM certificate — gets through it.
+	B64Suffix = ".b64"
 )
 
 // Client wraps a Kubernetes clientset.
@@ -87,6 +94,10 @@ func (c *Client) UpsertSecret(ctx context.Context, namespace, name string, data 
 	secrets := c.cs.CoreV1().Secrets(namespace)
 
 	data, secretType := splitType(data)
+	data, err := decodeB64(data)
+	if err != nil {
+		return nil, fmt.Errorf("secret %s/%s: %w", namespace, name, err)
+	}
 
 	existing, err := secrets.Get(ctx, name, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
@@ -138,6 +149,26 @@ func splitType(data map[string]string) (map[string]string, corev1.SecretType) {
 		return out, corev1.SecretTypeOpaque
 	}
 	return out, corev1.SecretType(t)
+}
+
+// decodeB64 replaces every `<key>.b64` entry with `<key>` and its decoded
+// value. The input map is not mutated, for the same reason as splitType.
+func decodeB64(data map[string]string) (map[string]string, error) {
+	out := make(map[string]string, len(data))
+	for k, v := range data {
+		name, ok := strings.CutSuffix(k, B64Suffix)
+		if !ok {
+			out[k] = v
+			continue
+		}
+		raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(v))
+		if err != nil {
+			// The key is named, never the value.
+			return nil, fmt.Errorf("key %s is not valid base64: %w", k, err)
+		}
+		out[name] = string(raw)
+	}
+	return out, nil
 }
 
 func (c *Client) create(ctx context.Context, namespace, name string, data map[string]string, secretType corev1.SecretType) (*ApplyResult, error) {
